@@ -2,10 +2,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.interpolate import griddata
 import matplotlib.path as mpltPath
+from scipy.spatial.distance import cdist
 from flask import Flask, request, jsonify
 import io
 import base64
-from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+from matplotlib.backends.backend_agg import FigureCanvas
 
 app = Flask(__name__)
 
@@ -16,8 +17,32 @@ def polygon_area(vertices):
     area = 0.5 * np.abs(np.dot(x[:-1], y[1:]) - np.dot(y[:-1], x[1:]))
     return area
 
+# Function to simulate signal enhancement using a Gaussian function
+def apply_signal_enhancement(grid_x, grid_y, grid_signal_full, enhancer_point, enhancer_strength=10, radius=2.0):
+    """Simulate signal enhancement by adding a Gaussian bump around the enhancer_point."""
+    distance = np.sqrt((grid_x - enhancer_point[0]) ** 2 + (grid_y - enhancer_point[1]) ** 2)
+    enhancement = enhancer_strength * np.exp(- (distance ** 2) / (2 * radius ** 2))
+    return grid_signal_full + enhancement
+
+# Function to find the best special point for signal enhancement
+def find_best_special_point(x_coords, y_coords, signal_strengths, grid_x, grid_y, grid_signal_full, min_strength, max_strength):
+    candidate_points = np.column_stack([grid_x.flatten(), grid_y.flatten()])
+    best_point = None
+    best_improvement = -np.inf
+
+    # Simulate enhancement at each candidate point and evaluate improvement
+    for candidate in candidate_points:
+        enhanced_signal = apply_signal_enhancement(grid_x, grid_y, grid_signal_full, candidate)
+        improvement = np.sum((enhanced_signal > min_strength) & (enhanced_signal < max_strength))  # Improvement metric
+
+        if improvement > best_improvement:
+            best_improvement = improvement
+            best_point = candidate
+
+    return best_point
+
 # Function to generate the plot and return it as base64-encoded string
-def generate_plot(x_coords, y_coords, signal_strengths):
+def generate_plot_with_best_point(x_coords, y_coords, signal_strengths, min_strength, max_strength):
     positions = np.column_stack((x_coords, y_coords))
     
     # Create the polygon path
@@ -43,31 +68,28 @@ def generate_plot(x_coords, y_coords, signal_strengths):
     grid_signal_full_flat[inside_mask] = grid_signal
     grid_signal_full = grid_signal_full_flat.reshape(grid_x.shape)
     
-    # Calculate area with signal strength between -30 dBm and -70 dBm
-    min_strength = -70
-    max_strength = -30
-    signal_mask = (grid_signal_full >= min_strength) & (grid_signal_full <= max_strength)
-    valid_mask = ~np.isnan(grid_signal_full)
-    combined_mask = signal_mask & valid_mask
+    # Find the best special point for signal enhancement
+    best_point = find_best_special_point(x_coords, y_coords, signal_strengths, grid_x, grid_y, grid_signal_full, min_strength, max_strength)
     
-    delta_x = (max_x - min_x) / (grid_resolution - 1)
-    delta_y = (max_y - min_y) / (grid_resolution - 1)
-    cell_area = delta_x * delta_y
-    num_cells = np.count_nonzero(combined_mask)
-    area_between_30_and_50 = num_cells * cell_area
-    percentage = (area_between_30_and_50 / area) * 100
+    # Apply enhancement at the best point
+    enhanced_signal_full = apply_signal_enhancement(grid_x, grid_y, grid_signal_full, best_point)
     
     # Plotting
     fig, ax = plt.subplots(figsize=(12, 8))
     heatmap = ax.imshow(
-        grid_signal_full.T, extent=(min_x, max_x, min_y, max_y),
+        enhanced_signal_full.T, extent=(min_x, max_x, min_y, max_y),
         origin='lower', cmap='RdYlGn', alpha=0.8, aspect='equal'
     )
     cbar = fig.colorbar(heatmap)
     cbar.set_label('Signal Strength (dBm)')
     ax.plot(polygon_vertices[:, 0], polygon_vertices[:, 1], 'k-', linewidth=2, label='Polygon Boundary')
     ax.scatter(x_coords, y_coords, c='black', edgecolors='white', s=50, label='Measurement Points')
-    ax.set_title('Wi-Fi Signal Strength Heat Map within the Polygon')
+    
+    # Plot the best point for signal enhancement
+    if best_point is not None:
+        ax.scatter([best_point[0]], [best_point[1]], c='blue', s=100, label='Best Signal Enhancer Location', marker='*')
+    
+    ax.set_title('Wi-Fi Signal Strength Heat Map with Best Enhancer Point')
     ax.set_xlabel('X Position (m)')
     ax.set_ylabel('Y Position (m)')
     ax.legend()
@@ -84,9 +106,7 @@ def generate_plot(x_coords, y_coords, signal_strengths):
     
     # Return text summary and base64 plot
     return {
-        "area": f"{area:.2f} square meters",
-        "area_between_30_and_50": f"{area_between_30_and_50:.2f} square meters",
-        "percentage": f"{percentage:.2f}%",
+        "best_point": best_point.tolist() if best_point is not None else None,
         "image_base64": img_base64
     }
 
@@ -97,7 +117,11 @@ def generate_plot_api():
     y_coords = np.array(data['y'])
     signal_strengths = np.array(data['strength'])
     
-    result = generate_plot(x_coords, y_coords, signal_strengths)
+    # Get min_strength and max_strength from the request, with defaults
+    min_strength = data.get('min_strength', -70)
+    max_strength = data.get('max_strength', -30)
+    
+    result = generate_plot_with_best_point(x_coords, y_coords, signal_strengths, min_strength, max_strength)
     
     return jsonify(result)
 
