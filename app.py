@@ -97,7 +97,7 @@ def generate_plot_api():
     # Get min_strength and max_strength from the request, with defaults
     min_strength = data.get('min_strength', -70)
     max_strength = data.get('max_strength', -30)
-    result = generate_plot_with_best_point(x_coords, y_coords, signal_strengths, min_strength, max_strength)
+    result = generate_plot(x_coords, y_coords, signal_strengths, min_strength, max_strength)
     
     return jsonify(result)
 if __name__ == '__main__':
