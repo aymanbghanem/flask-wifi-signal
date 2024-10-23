@@ -16,7 +16,7 @@ def polygon_area(vertices):
     area = 0.5 * np.abs(np.dot(x[:-1], y[1:]) - np.dot(y[:-1], x[1:]))
     return area
 # Function to generate the plot and return it as base64-encoded string
-def generate_plot(x_coords, y_coords, signal_strengths,min_strengthP, max_strengthP):
+def generate_plot(x_coords, y_coords, signal_strengths):
     positions = np.column_stack((x_coords, y_coords))
     
     # Create the polygon path
@@ -43,8 +43,8 @@ def generate_plot(x_coords, y_coords, signal_strengths,min_strengthP, max_streng
     grid_signal_full = grid_signal_full_flat.reshape(grid_x.shape)
     
     # Calculate area with signal strength between -30 dBm and -70 dBm
-    min_strength = min_strengthP
-    max_strength = max_strengthP
+    min_strength = -70
+    max_strength = -30
     signal_mask = (grid_signal_full >= min_strength) & (grid_signal_full <= max_strength)
     valid_mask = ~np.isnan(grid_signal_full)
     combined_mask = signal_mask & valid_mask
@@ -94,10 +94,8 @@ def generate_plot_api():
     x_coords = np.array(data['x'])
     y_coords = np.array(data['y'])
     signal_strengths = np.array(data['strength'])
-    # Get min_strength and max_strength from the request, with defaults
-    min_strength = data.get('min_strength', -70)
-    max_strength = data.get('max_strength', -30)
-    result = generate_plot(x_coords, y_coords, signal_strengths, min_strength, max_strength)
+    
+    result = generate_plot(x_coords, y_coords, signal_strengths)
     
     return jsonify(result)
 if __name__ == '__main__':
