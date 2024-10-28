@@ -43,7 +43,7 @@ def generate_plot(x_coords, y_coords, signal_strengths):
     grid_signal_full = grid_signal_full_flat.reshape(grid_x.shape)
     
     # Calculate area with signal strength between -30 dBm and -70 dBm
-    min_strength = -70
+    min_strength = -130
     max_strength = -30
     signal_mask = (grid_signal_full >= min_strength) & (grid_signal_full <= max_strength)
     valid_mask = ~np.isnan(grid_signal_full)
