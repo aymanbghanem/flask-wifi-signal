@@ -60,7 +60,8 @@ def generate_plot(x_coords, y_coords, signal_strengths):
     fig, ax = plt.subplots(figsize=(12, 8))
     heatmap = ax.imshow(
         grid_signal_full.T, extent=(min_x, max_x, min_y, max_y),
-        origin='lower', cmap='RdYlGn', alpha=0.8, aspect='equal'
+        origin='lower', cmap='RdYlGn', alpha=0.8, aspect='equal',
+        vmin=-30,vmax=-130
     )
     cbar = fig.colorbar(heatmap)
     cbar.set_label('Signal Strength (dBm)')
