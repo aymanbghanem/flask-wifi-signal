@@ -43,7 +43,7 @@ def generate_plot(x_coords, y_coords, signal_strengths):
     grid_signal_full = grid_signal_full_flat.reshape(grid_x.shape)
     
     # Calculate area with signal strength between -30 dBm and -70 dBm
-    min_strength = -130
+    min_strength = -70
     max_strength = -30
     signal_mask = (grid_signal_full >= min_strength) & (grid_signal_full <= max_strength)
     valid_mask = ~np.isnan(grid_signal_full)
@@ -53,15 +53,15 @@ def generate_plot(x_coords, y_coords, signal_strengths):
     delta_y = (max_y - min_y) / (grid_resolution - 1)
     cell_area = delta_x * delta_y
     num_cells = np.count_nonzero(combined_mask)
-    area_between_30_and_50 = num_cells * cell_area
-    percentage = (area_between_30_and_50 / area) * 100
+    area_between_30_and_70 = num_cells * cell_area
+    percentage = (area_between_30_and_70 / area) * 100
     
     # Plotting
     fig, ax = plt.subplots(figsize=(12, 8))
     heatmap = ax.imshow(
         grid_signal_full.T, extent=(min_x, max_x, min_y, max_y),
         origin='lower', cmap='RdYlGn', alpha=0.8, aspect='equal',
-        vmin=-30,vmax=-130
+        vmin=-30,vmax=-120
     )
     cbar = fig.colorbar(heatmap)
     cbar.set_label('Signal Strength (dBm)')
@@ -85,7 +85,7 @@ def generate_plot(x_coords, y_coords, signal_strengths):
     # Return text summary and base64 plot
     return {
         "area": f"{area:.2f} square meters",
-        "area_between_30_and_50": f"{area_between_30_and_50:.2f} square meters",
+        "area_between_30_and_70": f"{area_between_30_and_70:.2f} square meters",
         "percentage": f"{percentage:.2f}%",
         "image_base64": img_base64
     }
